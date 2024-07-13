@@ -23,14 +23,15 @@ def neg_log_likelihood(data, theta, beta):
     :param beta: Vector
     :return: float
     """
-    #####################################################################
-    # TODO:                                                             #
-    # Implement the function as described in the docstring.             #
-    #####################################################################
+    
     log_lklihood = 0.0
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    for i in range(len(data["is_correct"])):
+        c_ij = data["is_correct"][i]
+        u = data["user_id"][i]
+        q = data["question_id"][i]
+        sig = sigmoid(theta[u] - beta[q])
+        log_lklihood += c_ij * np.log(sig) - (1 - c_ij) * np.log(1 - sig)
+
     return -log_lklihood
 
 
@@ -51,14 +52,14 @@ def update_theta_beta(data, lr, theta, beta):
     :param beta: Vector
     :return: tuple of vectors
     """
-    #####################################################################
-    # TODO:                                                             #
-    # Implement the function as described in the docstring.             #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    for i in range(len(data["is_correct"])):
+        c_ij = data["is_correct"][i]
+        u = data["user_id"][i]
+        q = data["question_id"][i]
+        sig = sigmoid(theta[u] - beta[q])
+        theta[u] -= lr * (sig - c_ij) * beta[q]
+        beta[q] -= lr * (sig - c_ij) * theta[u]
+    
     return theta, beta
 
 
@@ -75,9 +76,11 @@ def irt(data, val_data, lr, iterations):
     :param iterations: int
     :return: (theta, beta, val_acc_lst)
     """
-    # TODO: Initialize theta and beta.
-    theta = None
-    beta = None
+
+    N = data['user_id'].nunique()
+    D = data['question_id'].nunique()
+    theta = np.random.randn(N, 1) * 0.1
+    beta = np.random.randn(D, 1) * 0.1
 
     val_acc_lst = []
 
@@ -117,24 +120,49 @@ def main():
     val_data = load_valid_csv("./data")
     test_data = load_public_test_csv("./data")
 
-    #####################################################################
-    # TODO:                                                             #
-    # Tune learning rate and number of iterations. With the implemented #
-    # code, report the validation and test accuracy.                    #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    learning_rates = [0.01, 0.05, 0.1]
+    num_iterations = [50, 100, 200]
 
-    #####################################################################
-    # TODO:                                                             #
-    # Implement part (d)                                                #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    best_val_acc = 0
+    best_lr = None
+    best_iter = None
+    best_theta = None
+    best_beta = None
+
+    for lr in learning_rates:
+        for iters in num_iterations:
+            theta, beta, val_acc_lst = irt(train_data, val_data, lr, iters)
+            val_acc = val_acc_lst[-1]  # Last value in validation accuracy list
+
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_lr = lr
+                best_iter = iters
+                best_theta = theta
+                best_beta = beta
+
+    print(f"Best Validation Accuracy: {best_val_acc}")
+    print(f"Best Learning Rate: {best_lr}")
+    print(f"Best Number of Iterations: {best_iter}")
+
+    test_acc = evaluate(test_data, best_theta, best_beta)
+    print(f"Test Accuracy: {test_acc}")
+
+    selected_questions = [0, 1, 2]  # question IDs you want to plot
+
+    import matplotlib.pyplot as plt
+
+    for q in selected_questions:
+        theta_range = np.linspace(-3, 3, 100)
+        probabilities = sigmoid(theta_range - best_beta[q])
+
+        plt.plot(theta_range, probabilities, label=f'Question {q}')
+
+    plt.xlabel('Theta (Ability)')
+    plt.ylabel('P(Correct)')
+    plt.legend()
+    plt.title('Probability of Correct Response vs. Ability')
+    plt.show()
 
 
 if __name__ == "__main__":
