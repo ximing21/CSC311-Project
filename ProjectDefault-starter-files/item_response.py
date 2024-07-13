@@ -5,6 +5,7 @@ from utils import (
     load_train_sparse,
 )
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def sigmoid(x):
@@ -57,8 +58,9 @@ def update_theta_beta(data, lr, theta, beta):
         u = data["user_id"][i]
         q = data["question_id"][i]
         sig = sigmoid(theta[u] - beta[q])
-        theta[u] -= lr * (sig - c_ij) * beta[q]
-        beta[q] -= lr * (sig - c_ij) * theta[u]
+
+        theta[u] += lr * (c_ij - sig) 
+        beta[q] -= lr * (c_ij - sig)
     
     return theta, beta
 
@@ -77,22 +79,34 @@ def irt(data, val_data, lr, iterations):
     :return: (theta, beta, val_acc_lst)
     """
 
-    N = data['user_id'].nunique()
-    D = data['question_id'].nunique()
-    theta = np.random.randn(N, 1) * 0.1
-    beta = np.random.randn(D, 1) * 0.1
+    N = len(data['user_id'])
+    D = len(data['question_id'])
+    theta = np.random.randn(N, 1) * 0.05
+    beta = np.random.randn(D, 1) * 0.01
 
+    # for part b
+    train_log_like = []
+    val_log_like = []
+ 
     val_acc_lst = []
 
     for i in range(iterations):
         neg_lld = neg_log_likelihood(data, theta=theta, beta=beta)
         score = evaluate(data=val_data, theta=theta, beta=beta)
+        val_neg_lld = neg_log_likelihood(data=val_data, theta=theta, beta=beta)
+
+        train_log_like.append(neg_lld)
+        val_log_like.append(val_neg_lld)
         val_acc_lst.append(score)
-        print("NLLK: {} \t Score: {}".format(neg_lld, score))
+
         theta, beta = update_theta_beta(data, lr, theta, beta)
 
+        if i % 10 == 0:
+            print(f"iteration: {i}, neg_log_likelihood: {neg_lld}, "
+                  f"val_acc: {score}")
+
     # TODO: You may change the return values to achieve what you want.
-    return theta, beta, val_acc_lst
+    return theta, beta, val_acc_lst, train_log_like, val_log_like
 
 
 def evaluate(data, theta, beta):
@@ -114,55 +128,53 @@ def evaluate(data, theta, beta):
 
 
 def main():
-    train_data = load_train_csv("./data")
+    train_data = load_train_csv("./ProjectDefault-starter-files/data")
+    val_data = load_valid_csv("./ProjectDefault-starter-files/data")
+    test_data = load_public_test_csv("./ProjectDefault-starter-files/data")
+
     # You may optionally use the sparse matrix.
     # sparse_matrix = load_train_sparse("./data")
-    val_data = load_valid_csv("./data")
-    test_data = load_public_test_csv("./data")
 
-    learning_rates = [0.01, 0.05, 0.1]
-    num_iterations = [50, 100, 200]
+    # TODO:
+    # Tune learning rate and number of iterations. With the implemented 
+    # code, report the validation and test accuracy. 
+    num_iteration = 120
+    lr = 0.001
 
-    best_val_acc = 0
-    best_lr = None
-    best_iter = None
-    best_theta = None
-    best_beta = None
+    theta, beta, val_acc, train_log_like, val_log_like = irt(train_data, val_data, lr, num_iteration)
 
-    for lr in learning_rates:
-        for iters in num_iterations:
-            theta, beta, val_acc_lst = irt(train_data, val_data, lr, iters)
-            val_acc = val_acc_lst[-1]  # Last value in validation accuracy list
+    # part b
+    print(f"hyperparameters: \n num_iteration = "
+          f"{num_iteration}, learning rate = {lr}")
+    plt.figure()
+    plt.plot(range(num_iteration), train_log_like, label='Train Log Likelihood')
+    plt.plot(range(num_iteration), val_log_like, label='Validation Log Likelihood')
+    plt.xlabel('Iteration')
+    plt.ylabel('Negative Log Likelihood')
+    plt.legend()
+    plt.title('Negative Log Likelihood vs. Iteration')
+    plt.savefig("./ProjectDefault-starter-files/plot/log_likelihood_plot.png")
+    plt.show()
+    
+    # part c
+    print("val accuracy: ", evaluate(val_data, theta, beta))
+    print("test accuracy: ", evaluate(test_data, theta, beta))
 
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
-                best_lr = lr
-                best_iter = iters
-                best_theta = theta
-                best_beta = beta
-
-    print(f"Best Validation Accuracy: {best_val_acc}")
-    print(f"Best Learning Rate: {best_lr}")
-    print(f"Best Number of Iterations: {best_iter}")
-
-    test_acc = evaluate(test_data, best_theta, best_beta)
-    print(f"Test Accuracy: {test_acc}")
-
-    selected_questions = [0, 1, 2]  # question IDs you want to plot
-
-    import matplotlib.pyplot as plt
+    # part d
+    selected_questions = [0, 1, 2]  # question IDs
 
     for q in selected_questions:
         theta_range = np.linspace(-3, 3, 100)
-        probabilities = sigmoid(theta_range - best_beta[q])
+        probabilities = sigmoid(theta_range - beta[q])
 
         plt.plot(theta_range, probabilities, label=f'Question {q}')
 
-    plt.xlabel('Theta (Ability)')
-    plt.ylabel('P(Correct)')
+    plt.xlabel('theta')
+    plt.ylabel('probability p(c_ij = 1)')
     plt.legend()
-    plt.title('Probability of Correct Response vs. Ability')
-    plt.show()
+    plt.title('Probability of Correct Response vs. Theta')
+    plt.savefig("./ProjectDefault-starter-files/plot/prob_correct_response.png")
+    plt.close()
 
 
 if __name__ == "__main__":
