@@ -26,7 +26,7 @@ def knn_impute_by_user(matrix, valid_data, k):
     # We use NaN-Euclidean distance measure.
     mat = nbrs.fit_transform(matrix)
     acc = sparse_matrix_evaluate(valid_data, mat)
-    print("Validation Accuracy: {}".format(acc))
+    print("Validation Accuracy for {} is: {}".format(k, acc))
     return acc
 
 
@@ -41,10 +41,13 @@ def knn_impute_by_item(matrix, valid_data, k):
     :return: float
     """
     #####################################################################
-    # TODO:                                                             #
     # Implement the function as described in the docstring.             #
     #####################################################################
-    acc = None
+    nbrs = KNNImputer(n_neighbors=k)
+    # We use NaN-Euclidean distance measure.
+    mat = nbrs.fit_transform(matrix.T)
+    acc = sparse_matrix_evaluate(valid_data, mat.T)
+    print("Validation Accuracy for {} is: {}".format(k, acc))
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
@@ -62,12 +65,40 @@ def main():
     print(sparse_matrix.shape)
 
     #####################################################################
-    # TODO:                                                             #
     # Compute the validation accuracy for each k. Then pick k* with     #
     # the best performance and report the test accuracy with the        #
     # chosen k*.                                                        #
     #####################################################################
-    pass
+    k_values = [1, 6, 11, 16, 21, 26]
+    result = []
+
+    for k in k_values:
+        acc = knn_impute_by_user(sparse_matrix, val_data, k)
+        result.append(acc)
+    plt.figure()
+    plt.plot(k_values, result, marker='o')
+    plt.xlabel("k")
+    plt.ylabel("Accuracy on the Validation Data")
+    plt.title("User-based Imputation")
+    plt.show()
+
+    for k in k_values:
+        acc = knn_impute_by_item(sparse_matrix, val_data, k)
+        result.append(acc)
+    plt.figure()
+    plt.plot(k_values, result, marker='o')
+    plt.xlabel("k")
+    plt.ylabel("Accuracy on the Validation Data")
+    plt.title("Item-based Imputation")
+    plt.show()
+
+    test_acc_user = knn_impute_by_user(sparse_matrix, test_data, 11)
+    test_acc_item = knn_impute_by_item(sparse_matrix, test_data, 21)
+    print("Test Accuracy for user-based collaborative filtering is: {}".
+          format(test_acc_user))
+    print("Test Accuracy for item-based collaborative filtering is: {}".
+          format(test_acc_item))
+
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
