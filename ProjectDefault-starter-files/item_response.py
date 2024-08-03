@@ -5,6 +5,7 @@ from utils import (
     load_train_sparse,
 )
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def sigmoid(x):
@@ -23,14 +24,15 @@ def neg_log_likelihood(data, theta, beta):
     :param beta: Vector
     :return: float
     """
-    #####################################################################
-    # TODO:                                                             #
-    # Implement the function as described in the docstring.             #
-    #####################################################################
+    
     log_lklihood = 0.0
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    for i in range(len(data["is_correct"])):
+        c_ij = data["is_correct"][i]
+        u = data["user_id"][i]
+        q = data["question_id"][i]
+        sig = sigmoid(theta[u] - beta[q])
+        log_lklihood += c_ij * np.log(sig) - (1 - c_ij) * np.log(1 - sig)
+
     return -log_lklihood
 
 
@@ -51,14 +53,15 @@ def update_theta_beta(data, lr, theta, beta):
     :param beta: Vector
     :return: tuple of vectors
     """
-    #####################################################################
-    # TODO:                                                             #
-    # Implement the function as described in the docstring.             #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    for i in range(len(data["is_correct"])):
+        c_ij = data["is_correct"][i]
+        u = data["user_id"][i]
+        q = data["question_id"][i]
+        sig = sigmoid(theta[u] - beta[q])
+
+        theta[u] += lr * (c_ij - sig) 
+        beta[q] -= lr * (c_ij - sig)
+    
     return theta, beta
 
 
@@ -75,21 +78,35 @@ def irt(data, val_data, lr, iterations):
     :param iterations: int
     :return: (theta, beta, val_acc_lst)
     """
-    # TODO: Initialize theta and beta.
-    theta = None
-    beta = None
 
+    N = len(data['user_id'])
+    D = len(data['question_id'])
+    theta = np.random.randn(N, 1) * 0.05
+    beta = np.random.randn(D, 1) * 0.01
+
+    # for part b
+    train_log_like = []
+    val_log_like = []
+ 
     val_acc_lst = []
 
     for i in range(iterations):
         neg_lld = neg_log_likelihood(data, theta=theta, beta=beta)
         score = evaluate(data=val_data, theta=theta, beta=beta)
+        val_neg_lld = neg_log_likelihood(data=val_data, theta=theta, beta=beta)
+
+        train_log_like.append(neg_lld)
+        val_log_like.append(val_neg_lld)
         val_acc_lst.append(score)
-        print("NLLK: {} \t Score: {}".format(neg_lld, score))
+
         theta, beta = update_theta_beta(data, lr, theta, beta)
 
+        if i % 10 == 0:
+            print(f"iteration: {i}, neg_log_likelihood: {neg_lld}, "
+                  f"val_acc: {score}")
+
     # TODO: You may change the return values to achieve what you want.
-    return theta, beta, val_acc_lst
+    return theta, beta, val_acc_lst, train_log_like, val_log_like
 
 
 def evaluate(data, theta, beta):
@@ -111,30 +128,53 @@ def evaluate(data, theta, beta):
 
 
 def main():
-    train_data = load_train_csv("./data")
+    train_data = load_train_csv("./ProjectDefault-starter-files/data")
+    val_data = load_valid_csv("./ProjectDefault-starter-files/data")
+    test_data = load_public_test_csv("./ProjectDefault-starter-files/data")
+
     # You may optionally use the sparse matrix.
     # sparse_matrix = load_train_sparse("./data")
-    val_data = load_valid_csv("./data")
-    test_data = load_public_test_csv("./data")
 
-    #####################################################################
-    # TODO:                                                             #
-    # Tune learning rate and number of iterations. With the implemented #
-    # code, report the validation and test accuracy.                    #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    # TODO:
+    # Tune learning rate and number of iterations. With the implemented 
+    # code, report the validation and test accuracy. 
+    num_iteration = 120
+    lr = 0.001
 
-    #####################################################################
-    # TODO:                                                             #
-    # Implement part (d)                                                #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
+    theta, beta, val_acc, train_log_like, val_log_like = irt(train_data, val_data, lr, num_iteration)
+
+    # part b
+    print(f"hyperparameters: \n num_iteration = "
+          f"{num_iteration}, learning rate = {lr}")
+    plt.figure()
+    plt.plot(range(num_iteration), train_log_like, label='Train Log Likelihood')
+    plt.plot(range(num_iteration), val_log_like, label='Validation Log Likelihood')
+    plt.xlabel('Iteration')
+    plt.ylabel('Negative Log Likelihood')
+    plt.legend()
+    plt.title('Negative Log Likelihood vs. Iteration')
+    plt.savefig("./ProjectDefault-starter-files/plot/log_likelihood_plot.png")
+    plt.show()
+    
+    # part c
+    print("val accuracy: ", evaluate(val_data, theta, beta))
+    print("test accuracy: ", evaluate(test_data, theta, beta))
+
+    # part d
+    selected_questions = [0, 1, 2]  # question IDs
+
+    for q in selected_questions:
+        theta_range = np.linspace(-3, 3, 100)
+        probabilities = sigmoid(theta_range - beta[q])
+
+        plt.plot(theta_range, probabilities, label=f'Question {q}')
+
+    plt.xlabel('theta')
+    plt.ylabel('probability p(c_ij = 1)')
+    plt.legend()
+    plt.title('Probability of Correct Response vs. Theta')
+    plt.savefig("./ProjectDefault-starter-files/plot/prob_correct_response.png")
+    plt.close()
 
 
 if __name__ == "__main__":
