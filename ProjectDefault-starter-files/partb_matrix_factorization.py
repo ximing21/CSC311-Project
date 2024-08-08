@@ -52,7 +52,14 @@ def add_weights(data):
         user_count[u] += 1
 
     for key in dictionary:
-        weights_acc[key] = dictionary[key][1] / dictionary[key][0]
+        if dictionary[key][0] != 0:
+            weights_acc[key] = dictionary[key][1] / dictionary[key][0]
+        else:
+            weights_acc[key] = 0
+    mean = np.mean([weights_acc[key] for key in weights_acc])
+
+    for key in dictionary:
+        weights_acc[key] = 1 - (np.abs(mean - weights_acc[key]))
 
     for q in set(question_id):
         w_1 = weights_acc[q]
